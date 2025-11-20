@@ -1,11 +1,11 @@
-# ☁️ Terraform을 활용한 AWS 3-Tier & Serverless 인프라 구축
+# ☁️ Terraform을 활용한 AWS 3-Tier & Serverless 인프라 구축 테스트
 
-Terraform을 사용하여 AWS 상에 Web Server(EC2), Database(RDS), Serverless(Lambda) 환경을 코드로 구축(IaC)하고 관리하는 프로젝트입니다.
+Terraform을 사용하여 AWS 상에 Web Server(EC2), Database(RDS), Serverless(Lambda) 환경을 코드로 구축(IaC) 테스트입니다.
 
 ## 🎯 프로젝트 목표
 - **Infrastructure as Code (IaC)**: 테라폼을 이용해 인프라의 생성, 변경, 삭제를 코드로 관리
 - **비용 최적화(Cost Optimization)**: 학습용 인프라 구축 시 불필요한 비용 발생을 방지하기 위한 설정 적용 (Elastic IP 미사용 등)
-- **Dependency Visualizing**: 리소스 간의 의존 관계 시각화 및 분석
+- **Dependency Visualizing**: 리소스 간의 의존 관계 시각화
 
 ## 🏗️ 아키텍처 및 의존성 그래프
 Terraform Graph를 통해 시각화한 리소스 간의 관계도입니다. VPC를 중심으로 Subnet, EC2, RDS, Lambda 등이 연결된 구조를 확인할 수 있습니다.
@@ -14,7 +14,7 @@ Terraform Graph를 통해 시각화한 리소스 간의 관계도입니다. VPC�
 <!-- 이미지 파일을 프로젝트 폴더에 넣고 경로를 맞춰주세요 -->
 
 ## 🛠️ Tech Stack
-- **IaC**: Terraform 5.x
+- **IaC**: Terraform v1.14.0 on windows_386
 - **Cloud Provider**: AWS (ap-northeast-2 / Seoul)
 - **Compute**: EC2 (Amazon Linux 2), Lambda (Python 3.9)
 - **Database**: RDS (MySQL 8.0)
