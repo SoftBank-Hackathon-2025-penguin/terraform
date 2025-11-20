@@ -1,6 +1,13 @@
 # Local .terraform directories
 .terraform/
 
+*.zip
+
+plan_output.txt
+
+.DS_Store
+Thumbs.db
+
 # .tfstate files
 *.tfstate
 *.tfstate.*
