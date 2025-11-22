@@ -1,0 +1,139 @@
+[Penguin-Land] 설계 문서
+1. 개요 및 범위 (Introduction & Scope)
+
+1.1. 프로젝트명
+
+* Penguin-Land: 테라폼 기반 원클릭 배포 및 이상 징후 코칭 서비스
+
+1.2. 문제 정의
+
+* 복잡한 클라우드 인프라 구축 과정을 자동화하고, 배포 직후 내 서비스가 안정적인지를 초보자도 직관적으로 알 수 있는 피드백 시스템이 부재하다.
+
+1.3. 솔루션 목표
+
+* One-Click Provisioning: 테라폼을 활용해 버튼 하나로 AWS 필수 리소스(7종)를 자동 생성한다.
+* Gamified Monitoring: CloudWatch 데이터를 분석해 펭귄 캐릭터와 코칭 메시지로 직관적인 상태(정상/주의/위험) 제공한다.
+
+1.4. 범위 (In Scope)
+
+* 인프라 생성/삭제: EC2, VPC, CloudWatch, SNS, Lambda, S3, DynamoDB 자동 배포 및 리소스를 정리(Destroy)한다.
+* 모니터링: CloudWatch 메트릭 수집, Anomaly Detection 설정, SNS 알림을 연동한다.
+* 웹 서비스: 실시간 배포 진행률 조회, 위험 점수 기반의 게이미피케이션 대시보드, 데모용 시뮬레이션 모드.
+
+1.5. 제외 범위 (Out of Scope)
+
+* 멀티 클라우드 지원 (AWS만 지원).
+* RDS (배포 시간 과다 소요로 인해 DynamoDB로 대체).
+* 복잡한 비용 분석
+
+
+2. 기능 요구사항 (Functional Requirements)
+
+[모듈 1: 인프라 프로비저닝 & 관리]
+
+* FR-01: 비동기 인프라 배포 요청
+    * 상세 설명: 사용자가 ‘생성’ 버튼을 클릭하면 백엔드는 즉시 응답하고, 별도 스레드에서 terraform apply를 실행한다. 
+    * 중복 요청 방지: 이미 “배포 중” 상태일 경우 요청을 차단한다.
+    * 에러 핸들링
+        * Terraform 프로세스 타임아웃: 10분 초과 시 자동으로 중단한다.
+        * 부분 생성 실패 시: terraform destroy로 자동 롤백 후 사용자에게 실패 알림을 보낸다.
+        * 재시도 옵션: 실패 시 '다시 시도' 버튼 제공한다.
+* FR-02: 실시간 상태 폴링 (Polling)
+    * 상세 설명: 프론트엔드는 3~5초 간격으로 상태 API를 호출하여 진행 단계(Plan → Creating → Done)와 로그를 로딩 바(Progress Bar)에 시각화한다.
+    * 배포 상태: INIT, PLANNING, APPLYING, COMPLETE, FAILED, DESTROYING
+    * 폴링 전략 
+        * 초기 1분: 3초 간격
+        * 1~3분: 5초 간격
+        * 3분 이후: 10초 간격
+* FR-03: 리소스 시각화 및 정보 제공
+    * 상세 설명: 배포 완료 후 terraform output -json을 파싱하여 리소스 ID/IP를 표시하고, terraform graph를 통해 아키텍처 관계도를 시각화한다.
+    * 사용자 격리:  각 배포에는 고유한 세션 ID를 부여하며, 모든 리소스에는 session-id 태그를 추가하여 사용자를 구분한다. 
+* FR-04: 원클릭 리소스 파괴 (Destroy)
+    * 상세 설명: '삭제' 버튼 클릭 시 terraform destroy를 실행하여 생성된 모든 AWS 리소스를 제거,  비용이 불필요하게 발생하지 않도록 방지한다. 
+* FR-05: 배포 완료 피드백
+    * 상세 설명: 모든 리소스 생성이 완료되면 화면에 '빵빠레' 효과를 연출하고 대시보드로 이동한다.
+
+[모듈 2: 모니터링 및 코칭]
+
+* FR-06: 이상 징후 감지 파이프라인
+    * 상세 설명: CloudWatch 메트릭(에러율, 레이턴시)에 Anomaly Detection을 설정한다. 
+        (초기 데이터가 부족할 경우 하드코딩된 임계값 로직으로 대체하여 작동한다.)
+    * 임계값 기준 
+        * CPU 사용률: 50% 이상 → 주의 | 70% 이상 → 위험
+        * 5xx 에러율: 3% 이상 → 주의 | 5% 이상 → 위험
+        * 레이턴시: 400ms 이상 → 주의 | 700ms 이상 → 위험
+* FR-07: 게이미피케이션 시각화 (펭귄)
+    * 상세 설명: 상태 점수에 따라 펭귄의 표정(웃음/보통/울음)과 배경색(초록/노랑/빨강)을 변경한다.
+    * 3단계 상태
+        * 안정 (0-30점): 초록색 배경, 웃는 펭귄, "👍 아주 안정적이에요!"
+        * 주의 (31-70점): 노란색 배경, 보통 표정, "⚠️ 조금 불안정해 보여요"
+        * 위험 (71-100점): 빨간색 배경, 우는 펭귄, "🚨 CPU가 과열되고 있어요!"
+* FR-08: 데모용 시뮬레이션 모드
+    * 상세 설명: 시연을 위해 강제로 '위험' 신호를 발생시키는 트리거를 구현한다. 버튼 클릭 시 펭귄이 울고 경고 알람이 뜨는 상황을 즉시 연출할 수 있어야 한다.
+
+
+3. 비기능 요구사항 및 제약 사항 (Non-Functional Requirements)
+
+3.1. 시스템 구조 및 성능
+
+* 단일 서버 아키텍처: Terraform CLI와 백엔드(Spring Boot)는 단일 EC2 내에서 구동한다.
+* 빠른 배포 속도: 시연을 위해 DB는 초기화 시간이 긴 RDS 대신 DynamoDB(Serverless)를 사용하여 전체 배포 시간을 단축한다.
+
+3.2. 안정성 및 보안
+
+* 권한 관리(최소 권한 원칙): Spring Boot 서버에는 다음 권한만 가진 IAM Role을 부여한다.
+    * EC2: FullAccess
+    * DynamoDB: FullAccess
+    * CloudWatch: FullAccess
+    * SNS: FullAccess
+    * Lambda: FullAccess
+    * S3: FullAccess (State 저장용)
+    * VPC: FullAccess
+* 상태 관리
+    * S3 Backend 사용 (e.g. s3://penguin-land-tfstate/sessions/{session-id}/ )
+    * DynamoDB Lock 테이블: 동시 실행을 방지한다.
+    * 서버 재시작 시에도 State가 유지되도록 보장한다. 
+
+3.3. 사용자 경험 (UX)
+
+* 긴 배포 시간(수 분) 동안 사용자가 이탈하지 않도록 위트 있는 로딩 멘트와 진행률 정보를 제공한다.
+
+
+4. 시스템 아키텍처 및 기술 스택 (Architecture & Tech Stack)
+
+4.1. 아키텍처 흐름 (Flow)
+
+
+1. User → Frontend(Dynamic Polling) → Spring Boot(Async) → Terraform CLI → AWS Resources 
+2. AWS Resources → CloudWatch (하드코딩 임계값) → Alarm → SNS → Backend → Frontend(Polling) 
+
+4.2. 생성할 AWS 리소스 목록 (7종)
+
+1. VPC: 네트워크 격리
+2. EC2: 애플리케이션 호스팅 (t2.micro)
+3. DynamoDB: 데이터 저장소 (RDS 대체)
+4. S3: 정적 파일 및 State 저장
+5. Lambda: 알람 중계 및 로직 처리
+6. CloudWatch: 로그 수집 및 이상 탐지
+7. SNS: 장애 알림 발송
+
+4.3. 기술 스택
+
+* Frontend: React, Lottie(애니메이션)
+* Backend: Java Spring Boot
+* Infra: Terraform, AWS
+* Interface: Java ProcessBuilder (CLI 실행)
+
+
+5. 테스트 및 검증 계획 (Testing & Validation)
+
+5.1. Lifecycle 테스트
+
+* 생성 → 확인 → 삭제: '생성' 버튼으로 리소스가 완벽히 뜨는지 확인하고, '삭제' 버튼으로 깔끔하게 지워지는지(Clean-up) 검증한다.
+* 에러 복구 테스트: 중간에 네트워크 끊김 시뮬레이션 후 자동 롤백을 확인한다.
+
+5.2. 시나리오 테스트 (Demo)
+
+* Anomaly Simulation: 시뮬레이션 버튼 클릭 시, 3초 이내에 프론트엔드의 펭귄 캐릭터가 '위험(Crying)' 상태로 전환되어야 한다.
+* Recovery: 시뮬레이션 종료 시 다시 '정상(Smiling)' 상태로 복구되어야 한다.
+
